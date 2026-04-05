@@ -47,6 +47,26 @@ BANCOS = {
     "21": ("HSBC", "cl_banco_hsbc"),
 }
 
+# Helpers de input
+
+def pedir(prompt, validar, error):
+    while True:
+        valor = input(prompt).strip()
+        if validar(valor):
+            return valor
+        print(f"  {error}")
+
+def pedir_int(prompt, error="Ingresa un número válido."):
+    while True:
+        try:
+            valor = int(input(prompt).strip())
+            if valor > 0:
+                return valor
+            print(f"  El monto debe ser mayor a 0.")
+        except ValueError:
+            print(f"  {error}")
+
+
 # 1. Calcular chunks
 
 def calcular_chunks(monto_total, limite_por_transferencia):
@@ -69,14 +89,7 @@ def asegurar_balance(account, monto_total):
     if respuesta != "s":
         print("Operación cancelada por balance insuficiente.")
         return False
-    while True:
-        try:
-            monto_deposito = int(input("¿Cuánto deseas agregar a tu cuenta? (CLP): "))
-            if monto_deposito > 0:
-                break
-            print("  El monto debe ser mayor a 0.")
-        except ValueError:
-            print("  Ingresa un número válido.")
+    monto_deposito = pedir_int("¿Cuánto deseas agregar a tu cuenta? (CLP): ")
     print(f"Simulando depósito de {monto_deposito:,} CLP...")
     client.v2.simulate.receive_transfer(
         account_number_id=account.root_account_number_id,
@@ -186,14 +199,12 @@ for i, account in enumerate(accounts):
 print()
 
 if len(accounts) > 1:
-    while True:
-        try:
-            idx = int(input(f"Elige cuenta origen (1-{len(accounts)}): ")) - 1
-            if 0 <= idx < len(accounts):
-                break
-            print(f"  Ingresa un número entre 1 y {len(accounts)}.")
-        except ValueError:
-            print("  Ingresa un número válido.")
+    opcion = pedir(
+        f"Elige cuenta origen (1-{len(accounts)}): ",
+        lambda v: v.isdigit() and 1 <= int(v) <= len(accounts),
+        f"Ingresa un número entre 1 y {len(accounts)}.",
+    )
+    idx = int(opcion) - 1
 else:
     idx = 0
 
@@ -202,55 +213,26 @@ cuenta_label = cuenta_origen.description or ("\u2022\u2022" + cuenta_origen.root
 print(f"\nCuenta seleccionada: {cuenta_label}\n")
 
 while True:
-    cuenta_origen = next(a for a in client.v2.accounts.list() if a.id == cuenta_origen.id)
     print(f"Saldo disponible: {cuenta_origen.available_balance:,} CLP\n")
-    while True:
-        try:
-            monto_total = int(input("Monto total a transferir (CLP): "))
-            if monto_total > 0:
-                break
-            print("  El monto debe ser mayor a 0.")
-        except ValueError:
-            print("  Ingresa un número válido.")
+    monto_total = pedir_int("Monto total a transferir (CLP): ")
     print()
     if asegurar_balance(cuenta_origen, monto_total):
         break
+    cuenta_origen = next(a for a in client.v2.accounts.list() if a.id == cuenta_origen.id)
 
-while True:
-    holder_id = input("RUT del destinatario: ").strip()
-    if holder_id:
-        break
-    print("  El RUT no puede estar vacío.")
-
-while True:
-    holder_name = input("Nombre del destinatario: ").strip()
-    if holder_name:
-        break
-    print("  El nombre no puede estar vacío.")
-
-while True:
-    account_number = input("Número de cuenta: ").strip()
-    if account_number:
-        break
-    print("  El número de cuenta no puede estar vacío.")
+holder_id      = pedir("RUT del destinatario: ",   bool, "El RUT no puede estar vacío.")
+holder_name    = pedir("Nombre del destinatario: ", bool, "El nombre no puede estar vacío.")
+account_number = pedir("Número de cuenta: ",        bool, "El número de cuenta no puede estar vacío.")
 
 print("Tipo de cuenta: \n1) Cuenta corriente \n2) Cuenta vista\n")
-while True:
-    opcion_tipo = input("Elige una opción (1 o 2): ").strip()
-    if opcion_tipo in ("1", "2"):
-        account_type = {"1": "checking_account", "2": "sight_account"}[opcion_tipo]
-        break
-    print("  Ingresa 1 o 2.")
+opcion_tipo  = pedir("Elige una opción (1 o 2): ", lambda v: v in ("1", "2"), "Ingresa 1 o 2.")
+account_type = {"1": "checking_account", "2": "sight_account"}[opcion_tipo]
 
 print("\nBanco de destino:")
 for k, (nombre, _) in BANCOS.items():
     print(f"  [{k}] {nombre}" if len(k) == 1 else f"  [{k}] {nombre}")
-while True:
-    opcion_banco = input("\nElige una opción: ").strip()
-    if opcion_banco in BANCOS:
-        banco_nombre, institution_id = BANCOS[opcion_banco]
-        break
-    print(f"  Ingresa un número entre 1 y {len(BANCOS)}.")
+opcion_banco           = pedir("\nElige una opción: ", lambda v: v in BANCOS, f"Ingresa un número entre 1 y {len(BANCOS)}.")
+banco_nombre, institution_id = BANCOS[opcion_banco]
 
 chunks = calcular_chunks(monto_total, LIMITE_POR_TRANSFERENCIA)
 
