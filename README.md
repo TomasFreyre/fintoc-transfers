@@ -27,6 +27,7 @@ cp .env.example .env
 ```
 FINTOC_API_KEY=tu_api_key_aqui
 JWS_PRIVATE_KEY_PATH=./private_key.pem
+ACCOUNT_NUMBER_ID=tu_account_number_id_aqui
 ```
 
 ## Uso
